@@ -1,11 +1,13 @@
 import boto3
 import jwt
+import jwt.exceptions
 import datetime
 import json
 import base64
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.serialization import load_der_public_key
 from cryptography.hazmat.backends import default_backend
+
 
 
 class BankAuth:
@@ -55,13 +57,26 @@ class BankAuth:
     def verify_token(self, token):
         try:
             headers = jwt.get_unverified_header(token)
-            if headers['kid'] != self.config['kms-key-id']:
-                raise ValueError("Token no fue firmado con la key de esta API")
-            
+        except jwt.exceptions.DecodeError:
+            raise ValueError("Token mal formado: no tiene el formato JWT (header.payload.signature).")
+
+        if headers.get('kid') != self.config['kms-key-id']:
+            raise ValueError("Token no fue firmado con la clave esperada.")
+
+        try:
             public_key_response = self.kms.get_public_key(KeyId=headers['kid'])
             public_key_der = public_key_response['PublicKey']
             public_key = load_der_public_key(public_key_der, backend=default_backend())
 
             return jwt.decode(token, public_key, algorithms=["RS256"], audience="bank-internal-apis")
+
+        except jwt.ExpiredSignatureError:
+            raise ValueError("El token ha expirado.")
+        except jwt.InvalidAudienceError:
+            raise ValueError("El token no tiene la audiencia esperada.")
+        except jwt.InvalidSignatureError:
+            raise ValueError("La firma del token no es válida.")
+        except jwt.PyJWTError as e:
+            raise ValueError(f"Token inválido: {str(e)}")
         except Exception as e:
-            raise ValueError(f"Verificación fallida: {str(e)}")
+            raise ValueError(f"Error inesperado en la verificación del token: {str(e)}")
