@@ -58,7 +58,7 @@ class BankAuth:
         try:
             headers = jwt.get_unverified_header(token)
         except jwt.exceptions.DecodeError:
-            raise ValueError("Token mal formado: no tiene el formato JWT (header.payload.signature).")
+            raise ValueError("Token mal formado: no tiene el formato JWT")
 
         if headers.get('kid') != self.config['kms-key-id']:
             raise ValueError("Token no fue firmado con la clave esperada.")
