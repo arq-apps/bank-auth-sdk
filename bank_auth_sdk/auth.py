@@ -16,19 +16,24 @@ class BankAuth:
         return json.loads(secret['SecretString'])
     
     def generate_token(self):
-        headers = {"kid": self.config['kms-key-id'], "alg": "RS256"}
+        headers = {
+            "kid": self.config['kms-key-id'],
+            "alg": "RS256"
+        }
         payload = {
             "iss": self.api_name,
-            "iat": datetime.datetime.utcnow(),
-            "exp": datetime.datetime.utcnow() + datetime.timedelta(minutes=15),
+            "iat": int(datetime.now(datetime.timezone.utc).timestamp()),  # Timezone-aware UTC
+            "exp": int((datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=15)).timestamp()),
             "aud": "bank-internal-apis"
         }
+    
         signing_response = self.kms.sign(
             KeyId=self.config['kms-key-id'],
             Message=json.dumps(payload),
             MessageType='RAW',
             SigningAlgorithm='RSASSA_PKCS1_V1_5_SHA_256'
         )
+    
         return jwt.encode(payload, signing_response['Signature'], algorithm="RS256", headers=headers)
     
     def verify_token(self, token):
