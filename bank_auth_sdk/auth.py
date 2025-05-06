@@ -5,6 +5,7 @@ import json
 import base64
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.serialization import load_der_public_key
+from cryptography.hazmat.backends import default_backend
 
 
 class BankAuth:
@@ -57,11 +58,10 @@ class BankAuth:
             if headers['kid'] != self.config['kms-key-id']:
                 raise ValueError("Token no fue firmado con la key de esta API")
             
-            # Obtener clave pública desde KMS y cargarla correctamente
             public_key_response = self.kms.get_public_key(KeyId=headers['kid'])
             public_key_der = public_key_response['PublicKey']
             public_key = load_der_public_key(public_key_der, backend=default_backend())
-            
+
             return jwt.decode(token, public_key, algorithms=["RS256"], audience="bank-internal-apis")
         except Exception as e:
             raise ValueError(f"Verificación fallida: {str(e)}")
