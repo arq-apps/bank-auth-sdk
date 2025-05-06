@@ -7,8 +7,8 @@ from cryptography.hazmat.primitives import serialization
 class BankAuth:
     def __init__(self, api_name):
         self.api_name = api_name
-        self.secrets = boto3.client('secretsmanager')
-        self.kms = boto3.client('kms')
+        self.secrets = boto3.client('secretsmanager', region_name='us-east-1')
+        self.kms = boto3.client('kms', region_name='us-east-1')
         self.config = self._load_config()
     
     def _load_config(self):
