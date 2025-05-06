@@ -2,6 +2,7 @@ import boto3
 import jwt
 import datetime
 import json
+import base64
 from cryptography.hazmat.primitives import serialization
 
 class BankAuth:
@@ -18,23 +19,35 @@ class BankAuth:
     def generate_token(self):
         headers = {
             "kid": self.config['kms-key-id'],
-            "alg": "RS256"
+            "alg": "RS256",
+            "typ": "JWT"
         }
+
         payload = {
             "iss": self.api_name,
-            "iat": datetime.datetime.now(datetime.timezone.utc).timestamp(),  
-            "exp": datetime.datetime.now(datetime.timezone.utc).timestamp() + 15 * 60,
+            "iat": int(datetime.datetime.now(datetime.timezone.utc).timestamp()),
+            "exp": int(datetime.datetime.now(datetime.timezone.utc).timestamp()) + 15 * 60,
             "aud": "bank-internal-apis"
         }
-    
+
+        def b64url_encode(data):
+            return base64.urlsafe_b64encode(data).decode('utf-8').rstrip("=")
+
+        header_json = json.dumps(headers, separators=(',', ':')).encode()
+        payload_json = json.dumps(payload, separators=(',', ':')).encode()
+
+        message = b64url_encode(header_json) + "." + b64url_encode(payload_json)
+
         signing_response = self.kms.sign(
             KeyId=self.config['kms-key-id'],
-            Message=json.dumps(payload),
+            Message=message.encode(),
             MessageType='RAW',
             SigningAlgorithm='RSASSA_PKCS1_V1_5_SHA_256'
         )
-    
-        return jwt.encode(payload, signing_response['Signature'], algorithm="RS256", headers=headers)
+
+        signature_b64 = b64url_encode(signing_response['Signature'])
+
+        return f"{message}.{signature_b64}"
     
     def verify_token(self, token):
         try:
