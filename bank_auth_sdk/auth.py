@@ -4,6 +4,8 @@ import datetime
 import json
 import base64
 from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.serialization import load_der_public_key
+
 
 class BankAuth:
     def __init__(self, api_name):
@@ -54,7 +56,11 @@ class BankAuth:
             headers = jwt.get_unverified_header(token)
             if headers['kid'] != self.config['kms-key-id']:
                 raise ValueError("Token no fue firmado con la key de esta API")
-            public_key = self.kms.get_public_key(KeyId=headers['kid'])
+            
+            public_key_response = self.kms.get_public_key(KeyId=headers['kid'])
+            public_key_der = public_key_response['PublicKey']
+            public_key = load_der_public_key(public_key_der)
+            
             return jwt.decode(token, public_key, algorithms=["RS256"], audience="bank-internal-apis")
         except Exception as e:
             raise ValueError(f"Verificación fallida: {str(e)}")
