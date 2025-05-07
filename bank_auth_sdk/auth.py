@@ -4,10 +4,8 @@ import jwt.exceptions
 import datetime
 import json
 import base64
-from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.serialization import load_der_public_key
 from cryptography.hazmat.backends import default_backend
-
 
 
 class BankAuth:
@@ -16,11 +14,11 @@ class BankAuth:
         self.secrets = boto3.client('secretsmanager', region_name='us-east-1')
         self.kms = boto3.client('kms', region_name='us-east-1')
         self.config = self._load_config()
-    
+
     def _load_config(self):
         secret = self.secrets.get_secret_value(SecretId=f"bank-api/{self.api_name}-app")
         return json.loads(secret['SecretString'])
-    
+
     def generate_token(self):
         headers = {
             "kid": self.config['kms-key-id'],
@@ -53,14 +51,21 @@ class BankAuth:
         signature_b64 = b64url_encode(signing_response['Signature'])
 
         return f"{message}.{signature_b64}"
-    
-    def verify_token(self, token):
+
+    def verify_token(self, token, issuer_app_name):
+        # Obtener la config del emisor (quien firmó el token)
+        try:
+            issuer_secret = self.secrets.get_secret_value(SecretId=f"bank-api/{issuer_app_name}-app")
+            issuer_config = json.loads(issuer_secret['SecretString'])
+        except Exception as e:
+            raise ValueError(f"No se pudo obtener la configuración del emisor '{issuer_app_name}': {str(e)}")
+
         try:
             headers = jwt.get_unverified_header(token)
         except jwt.exceptions.DecodeError:
             raise ValueError("Token mal formado: no tiene el formato JWT")
 
-        if headers.get('kid') != self.config['kms-key-id']:
+        if headers.get('kid') != issuer_config['kms-key-id']:
             raise ValueError("Token no fue firmado con la clave esperada.")
 
         try:
