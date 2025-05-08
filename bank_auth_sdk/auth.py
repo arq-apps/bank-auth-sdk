@@ -29,7 +29,7 @@ class BankAuth:
         payload = {
             "iss": self.api_name,
             "iat": int(datetime.datetime.now(datetime.timezone.utc).timestamp()),
-            "exp": int(datetime.datetime.now(datetime.timezone.utc).timestamp()) + 15 * 60,
+            "exp": int(datetime.datetime.now(datetime.timezone.utc).timestamp()) + 120 * 60,
             "aud": "bank-internal-apis"
         }
 
